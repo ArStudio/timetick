@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TimeTick - расписание и таймер</title>
+<style>
+  :root{
+    --bg: #0b0c0e;
+    --surface: #16181b;
+    --surface-hover: #1f2226;
+    --surface-selected: #2a2010;
+    --accent: #ffb703;
+    --accent-dim: #8a6a12;
+    --text: #eae7df;
+    --text-dim: #8c9096;
+    --border: #24272c;
+    --radius: 10px;
+    --font-display: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+
+  #app{
+    max-width: 640px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header{
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    border-bottom: 1px dashed var(--border);
+    padding: 18px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  header h1{
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.02em;
+    flex: 1;
+  }
+
+  header .eyebrow{
+    display: block;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .icon-box{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+  }
+
+  #backBtn{
+    appearance: none;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  #backBtn:hover{ background: var(--surface-hover); }
+  #backBtn:focus-visible, .row:focus-visible{
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .home-icon svg{
+    display: block;
+    color: var(--accent);
+  }
+
+  main{ flex: 1; padding-bottom: 40px; }
+
+  ul{ list-style: none; margin: 0; padding: 0; }
+
+  .row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--surface);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .row:hover{ background: var(--surface-hover); }
+  .row.selected{
+    background: var(--surface-selected);
+    border-left: 3px solid var(--accent);
+    padding-left: 13px;
+  }
+
+  .stop-name{ font-size: 16px; font-weight: 500; }
+  .stop-arrow{ color: var(--text-dim); font-family: var(--font-display); }
+  .row:hover .stop-arrow{ color: var(--accent); }
+
+  .row-time{
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-dim);
+    min-width: 64px;
+  }
+  .row.selected .row-time{ color: var(--accent); }
+  .row-text{ flex: 1; text-align: right; font-size: 15px; }
+  .row.selected .row-text{ color: var(--accent); }
+
+  .countdown-panel{
+    margin: 16px;
+    padding: 22px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+  }
+  .countdown-label{
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .countdown-time{
+    font-family: var(--font-display);
+    font-size: clamp(38px, 11vw, 56px);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    text-shadow: 0 0 18px rgba(255, 183, 3, 0.25);
+  }
+  .countdown-route{
+    margin-top: 10px;
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  #emptyMsg{
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  .full-day-link{
+    display: block;
+    width: 100%;
+    appearance: none;
+    background: none;
+    border: none;
+    border-top: 1px dashed var(--border);
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 18px 16px;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+  .full-day-link:hover{ color: #ffd166; }
+
+  .row.past{ opacity: 0.45; }
+  .row.past .row-time,
+  .row.past .row-text{ color: var(--text-dim); }
+  .row.selected.past{ opacity: 1; }
+  .row.selected.past .row-time,
+  .row.selected.past .row-text{ color: var(--accent); }
+
+  [hidden]{ display: none !important; }
+
+  @media (prefers-reduced-motion: reduce){
+    .row{ transition: none; }
+  }
+
+  @media (max-width: 480px){
+    header{ padding: 14px 12px; }
+    .row{ padding: 15px 14px; }
+    .countdown-panel{ margin: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <button id="backBtn" class="icon-box" hidden aria-label="Назад к списку расписаний">←</button>
+    <div id="homeIcon" class="icon-box home-icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 22h14"></path>
+        <path d="M5 2h14"></path>
+        <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path>
+        <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+      </svg>
+    </div>
+    <div>
+      <span class="eyebrow" id="eyebrow">TimeTick - расписание и таймер</span>
+      <h1 id="pageTitle">Все расписания</h1>
+    </div>
+  </header>
+
+  <main>
+    <ul id="stopsList" class="stops-list"></ul>
+
+    <div id="scheduleView" hidden>
+      <div class="countdown-panel">
+        <div class="countdown-label" id="countdownLabel">До ближайшего события</div>
+        <div class="countdown-time" id="countdownTime">00:00:00</div>
+        <div class="countdown-route" id="countdownRoute">—</div>
+      </div>
+      <ul id="scheduleList" class="schedule-list"></ul>
+      <p id="emptyMsg" hidden>События на сегодня больше нет.</p>
+      <button id="fullDayLink" class="full-day-link" type="button">Показать прошедшие</button>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  // Формат данных: "ЧЧ:ММ,Название события" по одной строке
+  const DATA = {
+"Ногина (ДК Ленина)": 
+`06:31,7 Октябрьская
+06:36,106 Октябрьская
+06:41,12 Ивановские Дворики
+06:51,7 Площадь Ленина
+07:06,106 Октябрьская
+07:11,7 Площадь Ленина
+07:30,7к Сельсовет
+07:31,106 Октябрьская
+07:31,7 по Осенней
+07:44,12 Ивановские Дворики
+07:51,7 Площадь Ленина
+07:58,12 через МФЦ
+07:59,7 Октябрьская
+08:06,106 Октябрьская
+08:18,12 Б-Класс
+08:26,7 по Осенней
+08:36,7 Площадь Ленина
+08:41,106 Октябрьская
+08:46,12 Ивановские Дворики
+08:56,12 через МФЦ
+09:01,106 Октябрьская
+09:03,7 по Осенней
+09:21,7 Октябрьская
+09:30,12 Б-Класс
+09:31,7 Площадь Ленина
+09:36,106 Октябрьская
+09:46,7 по Осенней
+09:56,12 Ивановские Дворики
+10:01,106 Октябрьская
+10:11,7 Площадь Ленина
+10:21,12 через МФЦ
+10:26,7 Площадь Ленина
+10:31,106 Октябрьская
+10:36,7 по Осенней
+10:52,12 Б-Класс
+11:01,7 Площадь Ленина
+11:01,106 Октябрьская
+11:08,12 Ивановские Дворики
+11:21,7 по Осенней
+11:31,7 Площадь Ленина
+11:31,106 Октябрьская
+11:41,7к Сельсовет
+11:54,12 Б-Класс
+12:01,12 через МФЦ
+12:06,106 Октябрьская
+12:11,7 Площадь Ленина
+12:31,12 Ивановские Дворики
+12:41,7 по Осенней
+12:46,106 Октябрьская
+12:52,12 Б-Класс
+13:06,7 Октябрьская
+13:16,7 Площадь Ленина
+13:21,106 Октябрьская
+13:31,7 по Осенней
+13:46,12 Ивановские Дворики
+13:51,106 Октябрьская
+14:01,7 Площадь Ленина
+14:06,12 через МФЦ
+14:11,7 Площадь Ленина
+14:22,12 Б-Класс
+14:41,106 Октябрьская
+14:41,7 по Осенней
+14:56,7 Площадь Ленина
+14:58,12 Ивановские Дворики
+15:11,7 Площадь Ленина
+15:16,12 через МФЦ
+15:16,106 Октябрьская
+15:22,12 Б-Класс
+15:36,7 по Осенней
+15:51,106 Октябрьская
+15:56,7 Площадь Ленина
+16:07,12 Ивановские Дворики
+16:11,7 Площадь Ленина
+16:21,12 через МФЦ
+16:27,12 Б-Класс
+16:31,106 Октябрьская
+16:31,7 по Осенней
+16:43,7 Октябрьская
+16:51,106 Октябрьская
+17:01,7 Площадь Ленина
+17:14,12 Ивановские Дворики
+17:16,106 Октябрьская
+17:21,12 через МФЦ
+17:30,12 Б-Класс
+17:31,7 по Осенней
+17:41,106 Октябрьская
+17:56,7 Октябрьская
+18:11,7 Площадь Ленина
+18:16,106 Октябрьская
+18:31,7 по Осенней
+18:46,12 через МФЦ
+18:47,7к Сельсовет
+18:52,12 Б-Класс
+18:59,7 Октябрьская
+19:11,106 Октябрьская
+19:21,7 по Осенней
+19:41,106 Октябрьская
+19:52,12 Б-Класс
+20:01,12 через МФЦ
+20:26,106 Октябрьская
+21:46,106 Октябрьская`,
+
+"Ногина (Жемчужина)": 
+`06:34,17а Б-Класс
+06:50,17а Ивановские Дворики
+07:05,17 по Пушкина
+07:20,17а Б-Класс
+07:45,17а Ивановские Дворики
+08:00,17 Б-Класс (прямо)
+08:25,17 по Пушкина
+09:00,17а Б-Класс
+09:20,17а Ивановские Дворики
+09:50,17 по Пушкина
+10:00,17 Б-Класс (прямо)
+10:30,17а Б-Класс
+10:43,17а Ивановские Дворики
+11:15,17 по Пушкина
+11:30,17 Б-Класс (прямо)
+11:57,17а Б-Класс
+12:17,17а Ивановские Дворики
+13:10,17 по Пушкина
+13:25,17 Б-Класс (прямо)
+13:50,17а Б-Класс
+14:10,17а Ивановские Дворики
+14:40,17 по Пушкина
+15:00,17 Б-Класс (прямо)
+15:25,17а Б-Класс
+15:40,17а Ивановские Дворики
+16:15,17 по Пушкина
+16:40,17 Б-Класс (прямо)
+16:55,17а Б-Класс
+17:20,17а Ивановские Дворики
+17:45,17 по Пушкина
+18:15,17 Б-Класс (прямо)
+18:30,17а Б-Класс
+18:42,17а Ивановские Дворики
+19:15,17 по Пушкина
+20:10,17а Б-Класс`,
+
+"Вокзал − ТРК Б-Класс": 
+`06:15,9 по Северному
+07:00,9 по Северному
+07:40,9 по Северному
+08:30,9 по Северному
+09:05,9 по Северному
+09:40,9 по Северному
+10:38,9 по Северному
+11:30,9 по Северному
+12:45,9 по Северному
+13:25,9 по Северному
+15:46,9 по Северному
+16:50,9 по Северному
+17:40,9 по Северному
+18:25,9 по Северному
+19:02,9 по Северному
+20:10,9 по Северному
+20:50,9 по Северному
+04:15,43 Оболенск
+05:25,43 Оболенск
+06:35,43 Оболенск
+07:01,43 Оболенск
+07:45,43 Оболенск
+08:40,43 Оболенск
+09:30,43 Оболенск
+10:35,43 Оболенск
+11:20,43 Оболенск
+12:00,43 Оболенск
+12:50,43 Оболенск
+13:40,43 Оболенск
+14:30,43 Оболенск
+14:55,43 Оболенск
+15:25,43 Оболенск
+16:10,43 Оболенск
+16:50,43 Оболенск
+17:15,43 Оболенск
+18:15,43 Оболенск
+18:55,43 Оболенск
+19:30,43 Оболенск
+21:55,43 Оболенск
+04:55,50/102 Курилово
+05:40,50/102 Курилово
+08:05,50/102 Курилово
+11:00,50/102 Курилово
+12:40,50/102 Курилово
+15:40,50/102 Курилово
+17:25,50/102 Курилово
+20:50,50/102 Курилово
+05:15,2к по Пушкина
+05:37,2к по Пушкина
+06:37,2к по Пушкина
+07:28,2к по Пушкина
+07:37,2к по Пушкина
+09:30,2к по Пушкина
+10:20,2к по Пушкина
+11:18,2к по Пушкина
+11:40,2к по Пушкина
+12:45,2к по Пушкина
+13:15,2к по Пушкина
+14:30,2к по Пушкина
+15:15,2к по Пушкина
+15:45,2к по Пушкина
+16:15,2к по Пушкина
+16:45,2к по Пушкина
+17:25,2к по Пушкина
+18:05,2к по Пушкина
+20:05,2к по Пушкина
+21:10,2к по Пушкина
+22:10,2к по Пушкина
+04:37,2мк по Береговой
+10:09,2мк по Береговой
+14:00,2мк по Береговой
+20:00,2мк по Береговой
+07:50,104 по Советской
+08:18,104 по Советской
+08:40,104 по Советской
+09:20,104 по Советской
+09:38,104 по Советской
+10:35,104 по Советской
+10:48,104 по Советской
+11:40,104 по Советской
+12:30,104 по Советской
+13:07,104 по Советской
+13:43,104 по Советской
+13:55,104 по Советской
+14:34,104 по Советской
+15:00,104 по Советской
+15:30,104 по Советской
+15:55,104 по Советской
+16:43,104 по Советской
+17:19,104 по Советской
+18:20,104 по Советской
+18:40,104 по Советской
+19:10,104 по Советской
+19:57,104 по Советской
+20:25,104 по Советской
+20:45,104 по Советской
+21:12,104 по Советской
+21:40,104 по Советской`,
+
+"От ТРК Б-Класс": 
+`05:43,2к по Береговой
+06:05,2к по Береговой
+07:05,2к по Береговой
+07:56,2к по Береговой
+08:05,2к по Береговой
+09:58,2к по Береговой
+10:48,2к по Береговой
+11:46,2к по Береговой
+12:08,2к по Береговой
+13:13,2к по Береговой
+13:43,2к по Береговой
+14:58,2к по Береговой
+15:43,2к по Береговой
+16:13,2к по Береговой
+16:43,2к по Береговой
+17:13,2к по Береговой
+17:53,2к по Береговой
+18:33,2к по Береговой
+20:33,2к по Береговой
+21:38,2к по Береговой
+22:33,2к по Береговой
+22:38,2к по Береговой
+05:03,2мк по Пушкина
+10:35,2мк по Пушкина
+14:26,2мк по Пушкина
+20:26,2мк по Пушкина
+08:50,12 Ногина (ДК Ленина)
+10:03,12 Ногина (ДК Ленина)
+11:20,12 Ногина (ДК Ленина)
+12:22,12 Ногина (ДК Ленина)
+13:25,12 Ногина (ДК Ленина)
+14:50,12 Ногина (ДК Ленина)
+15:52,12 Ногина (ДК Ленина)
+17:00,12 Ногина (ДК Ленина)
+18:05,12 Ногина (ДК Ленина)
+19:20,12 Ногина (ДК Ленина)
+20:20,12 Ногина (ДК Ленина)
+07:29,17а Ногина (Жемчужина)
+08:15,17а Ногина (Жемчужина)
+09:55,17а Ногина (Жемчужина)
+11:25,17а Ногина (Жемчужина)
+12:52,17а Ногина (Жемчужина)
+14:45,17а Ногина (Жемчужина)
+16:20,17а Ногина (Жемчужина)
+17:50,17а Ногина (Жемчужина)
+19:25,17а Ногина (Жемчужина)
+21:05,17а Ногина (Жемчужина)
+08:15,104 Вокзал
+08:45,104 Вокзал
+09:05,104 Вокзал
+09:50,104 Вокзал
+10:05,104 Вокзал
+11:00,104 Вокзал
+11:15,104 Вокзал
+12:05,104 Вокзал
+12:55,104 Вокзал
+13:30,104 Вокзал
+14:06,104 Вокзал
+14:18,104 Вокзал
+15:00,104 Вокзал
+15:28,104 Вокзал
+15:55,104 Вокзал
+16:18,104 Вокзал
+17:10,104 Вокзал
+17:45,104 Вокзал
+18:43,104 Вокзал
+19:05,104 Вокзал
+19:33,104 Вокзал
+20:20,104 Вокзал
+20:48,104 Вокзал
+21:10,104 Вокзал
+21:35,104 Вокзал
+22:15,104 Вокзал
+06:35,106 Ногина (ДК Ленина)
+06:55,106 Ногина (ДК Ленина)
+07:21,106 Ногина (ДК Ленина)
+07:41,106 Ногина (ДК Ленина)
+08:15,106 Ногина (ДК Ленина)
+08:55,106 Ногина (ДК Ленина)
+09:25,106 Ногина (ДК Ленина)
+09:36,106 Ногина (ДК Ленина)
+10:11,106 Ногина (ДК Ленина)
+10:45,106 Ногина (ДК Ленина)
+11:20,106 Ногина (ДК Ленина)
+11:46,106 Ногина (ДК Ленина)
+12:16,106 Ногина (ДК Ленина)
+12:51,106 Ногина (ДК Ленина)
+13:45,106 Ногина (ДК Ленина)
+14:25,106 Ногина (ДК Ленина)
+15:05,106 Ногина (ДК Ленина)
+15:36,106 Ногина (ДК Ленина)
+15:56,106 Ногина (ДК Ленина)
+16:20,106 Ногина (ДК Ленина)
+16:41,106 Ногина (ДК Ленина)
+17:35,106 Ногина (ДК Ленина)
+18:21,106 Ногина (ДК Ленина)
+18:41,106 Ногина (ДК Ленина)
+19:55,106 Ногина (ДК Ленина)
+20:41,106 Ногина (ДК Ленина)
+21:06,106 Ногина (ДК Ленина)`
+  };
+
+  const stopsListEl = document.getElementById('stopsList');
+  const scheduleViewEl = document.getElementById('scheduleView');
+  const scheduleListEl = document.getElementById('scheduleList');
+  const emptyMsgEl = document.getElementById('emptyMsg');
+  const countdownTimeEl = document.getElementById('countdownTime');
+  const countdownRouteEl = document.getElementById('countdownRoute');
+  const countdownLabelEl = document.getElementById('countdownLabel');
+  const backBtn = document.getElementById('backBtn');
+  const homeIconEl = document.getElementById('homeIcon');
+  const pageTitleEl = document.getElementById('pageTitle');
+  const eyebrowEl = document.getElementById('eyebrow');
+  const fullDayLink = document.getElementById('fullDayLink');
+
+  let currentEntries = [];
+  let fullEntries = [];
+  let selectedEntry = null;
+  let timerId = null;
+  let viewMode = 'live'; // 'live' — только будущие события, 'full' — весь день
+
+  function pad(n){ return n.toString().padStart(2, '0'); }
+
+  function parseSchedule(text){
+    return text.trim().split('\n').map(line => {
+      const [time, ...rest] = line.split(',');
+      return { time: time.trim(), text: rest.join(',').trim() };
+    });
+  }
+
+  function buildEntries(stopName){
+    const now = new Date();
+    return parseSchedule(DATA[stopName])
+      .map(item => {
+        const [h, m] = item.time.split(':').map(Number);
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+        return { time: item.time, text: item.text, date: d };
+      })
+      .filter(entry => entry.date > now) // скрываем события, которые уже прошли сегодня
+      .sort((a, b) => a.date - b.date);
+  }
+
+  function buildFullEntries(stopName){
+    const now = new Date();
+    return parseSchedule(DATA[stopName])
+      .map(item => {
+        const [h, m] = item.time.split(':').map(Number);
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+        return { time: item.time, text: item.text, date: d };
+      })
+      .sort((a, b) => a.date - b.date);
+  }
+
+  function renderStops(){
+    stopsListEl.innerHTML = '';
+    Object.keys(DATA).forEach(name => {
+      const li = document.createElement('li');
+      li.className = 'row';
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.innerHTML = `<span class="stop-name">${name}</span><span class="stop-arrow">→</span>`;
+      li.addEventListener('click', () => openStop(name));
+      li.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStop(name); }
+      });
+      stopsListEl.appendChild(li);
+    });
+  }
+
+  function openStop(stopName){
+    currentEntries = buildEntries(stopName);
+    fullEntries = buildFullEntries(stopName);
+    selectedEntry = null;
+    viewMode = 'live';
+    fullDayLink.textContent = 'Показать прошедшие';
+    stopsListEl.hidden = true;
+    scheduleViewEl.hidden = false;
+    backBtn.hidden = false;
+    homeIconEl.hidden = true;
+    eyebrowEl.textContent = 'Расписание';
+    pageTitleEl.textContent = stopName;
+    renderSchedule();
+    if (timerId) clearInterval(timerId);
+    tick();
+    timerId = setInterval(tick, 1000);
+  }
+
+  function closeStop(){
+    if (timerId) clearInterval(timerId);
+    scheduleViewEl.hidden = true;
+    stopsListEl.hidden = false;
+    backBtn.hidden = true;
+    homeIconEl.hidden = false;
+    eyebrowEl.textContent = 'TimeTick - расписание и таймер';
+    pageTitleEl.textContent = 'Все расписания';
+  }
+
+  function renderSchedule(){
+    scheduleListEl.innerHTML = '';
+    const entries = viewMode === 'full' ? fullEntries : currentEntries;
+    const now = new Date();
+
+    if (entries.length === 0){
+      emptyMsgEl.hidden = false;
+      scheduleListEl.hidden = true;
+      return;
+    }
+    emptyMsgEl.hidden = true;
+    scheduleListEl.hidden = false;
+    entries.forEach(entry => {
+      const isPast = viewMode === 'full' && entry.date <= now;
+      const li = document.createElement('li');
+      li.className = 'row'
+        + (entry === selectedEntry ? ' selected' : '')
+        + (isPast ? ' past' : '');
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.innerHTML = `<span class="row-time">${entry.time}</span><span class="row-text">${entry.text}</span>`;
+      li.addEventListener('click', () => toggleSelect(entry));
+      li.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSelect(entry); }
+      });
+      scheduleListEl.appendChild(li);
+    });
+  }
+
+  function toggleFullDay(){
+    viewMode = (viewMode === 'full') ? 'live' : 'full';
+    fullDayLink.textContent = viewMode === 'full'
+      ? 'Скрыть прошедшие'
+      : 'Показать прошедшие';
+    renderSchedule();
+  }
+
+  function toggleSelect(entry){
+    selectedEntry = (selectedEntry === entry) ? null : entry;
+    renderSchedule();
+    tick();
+  }
+
+  function getTarget(){
+    if (selectedEntry) return selectedEntry;
+    if (currentEntries.length === 0) return null;
+    return currentEntries.reduce((a, b) => (a.date < b.date ? a : b));
+  }
+
+  function nextOccurrence(timeStr, now){
+    const [h, m] = timeStr.split(':').map(Number);
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+    if (d <= now) d.setDate(d.getDate() + 1); // время уже прошло сегодня — считаем до завтрашнего повтора
+    return d;
+  }
+
+  function tick(){
+    const target = getTarget();
+    if (!target){
+      countdownLabelEl.textContent = 'На сегодня';
+      countdownTimeEl.textContent = '—:—:—';
+      countdownRouteEl.textContent = 'Событий больше нет';
+      return;
+    }
+    const now = new Date();
+
+    if (target.date <= now){
+      // Плановое время события уже наступило.
+      const idx = currentEntries.indexOf(target);
+      if (idx > -1){
+        // Это реально отслеживаемое (живое) событие — он "уехал", убираем строку.
+        currentEntries.splice(idx, 1);
+        if (selectedEntry === target) selectedEntry = null;
+        renderSchedule();
+        tick();
+        return;
+      }
+      // Иначе это вручную выбранное прошедшее событие из списка "Показать прошедшие" —
+      // строку никуда не убираем, а считаем время до его следующего повторения (завтра).
+    }
+
+    const targetDate = target.date <= now ? nextOccurrence(target.time, now) : target.date;
+    const diff = targetDate - now;
+
+    const totalSeconds = Math.floor(diff / 1000);
+    const hh = Math.floor(totalSeconds / 3600);
+    const mm = Math.floor((totalSeconds % 3600) / 60);
+    const ss = totalSeconds % 60;
+
+    countdownTimeEl.textContent = `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+    countdownRouteEl.textContent = `${target.time} · ${target.text}`;
+    countdownLabelEl.textContent = selectedEntry ? 'До выбранного события' : 'До ближайшего события';
+  }
+
+  backBtn.addEventListener('click', closeStop);
+  fullDayLink.addEventListener('click', toggleFullDay);
+
+  renderStops();
+</script>
+</body>
+</html>
