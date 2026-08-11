@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TimeTick - расписание и таймер</title>
+<style>
+  :root{
+    --bg: #0b0c0e;
+    --surface: #16181b;
+    --surface-hover: #1f2226;
+    --surface-selected: #2a2010;
+    --accent: #ffb703;
+    --accent-dim: #8a6a12;
+    --text: #eae7df;
+    --text-dim: #8c9096;
+    --border: #24272c;
+    --radius: 10px;
+    --font-display: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+
+  #app{
+    max-width: 640px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header{
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    border-bottom: 1px dashed var(--border);
+    padding: 18px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  header h1{
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.02em;
+    flex: 1;
+  }
+
+  header .eyebrow{
+    display: block;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .icon-box{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+  }
+
+  #backBtn{
+    appearance: none;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  #backBtn:hover{ background: var(--surface-hover); }
+  #backBtn:focus-visible, .row:focus-visible{
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .home-icon svg{
+    display: block;
+    color: var(--accent);
+  }
+
+  main{ flex: 1; padding-bottom: 40px; }
+
+  ul{ list-style: none; margin: 0; padding: 0; }
+
+  .row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--surface);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .row:hover{ background: var(--surface-hover); }
+  .row.selected{
+    background: var(--surface-selected);
+    border-left: 3px solid var(--accent);
+    padding-left: 13px;
+  }
+
+  .stop-name{ font-size: 16px; font-weight: 500; }
+  .stop-arrow{ color: var(--text-dim); font-family: var(--font-display); }
+  .row:hover .stop-arrow{ color: var(--accent); }
+
+  .row-time{
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-dim);
+    min-width: 64px;
+  }
+  .row.selected .row-time{ color: var(--accent); }
+  .row-text{ flex: 1; text-align: right; font-size: 15px; }
+  .row.selected .row-text{ color: var(--accent); }
+
+  .countdown-panel{
+    margin: 16px;
+    padding: 22px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+  }
+  .countdown-label{
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .countdown-time{
+    font-family: var(--font-display);
+    font-size: clamp(38px, 11vw, 56px);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    text-shadow: 0 0 18px rgba(255, 183, 3, 0.25);
+  }
+  .countdown-route{
+    margin-top: 10px;
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  #emptyMsg{
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  .full-day-link{
+    display: block;
+    width: 100%;
+    appearance: none;
+    background: none;
+    border: none;
+    border-top: 1px dashed var(--border);
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 18px 16px;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+  .full-day-link:hover{ color: #ffd166; }
+
+  .row.past{ opacity: 0.45; }
+  .row.past .row-time,
+  .row.past .row-text{ color: var(--text-dim); }
+  .row.selected.past{ opacity: 1; }
+  .row.selected.past .row-time,
+  .row.selected.past .row-text{ color: var(--accent); }
+
+  [hidden]{ display: none !important; }
+
+  @media (prefers-reduced-motion: reduce){
+    .row{ transition: none; }
+  }
+
+  @media (max-width: 480px){
+    header{ padding: 14px 12px; }
+    .row{ padding: 15px 14px; }
+    .countdown-panel{ margin: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <button id="backBtn" class="icon-box" hidden aria-label="Назад к списку остановок">←</button>
+    <div id="homeIcon" class="icon-box home-icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 22h14"></path>
+        <path d="M5 2h14"></path>
+        <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path>
+        <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+      </svg>
+    </div>
+    <div>
+      <span class="eyebrow" id="eyebrow">TimeTick - расписание и таймер</span>
+      <h1 id="pageTitle">Все расписания</h1>
+    </div>
+  </header>
+
+  <main>
+    <ul id="stopsList" class="stops-list"></ul>
+
+    <div id="scheduleView" hidden>
+      <div class="countdown-panel">
+        <div class="countdown-label" id="countdownLabel">До ближайшего рейса</div>
+        <div class="countdown-time" id="countdownTime">00:00:00</div>
+        <div class="countdown-route" id="countdownRoute">—</div>
+      </div>
+      <ul id="scheduleList" class="schedule-list"></ul>
+      <p id="emptyMsg" hidden>Рейсов на сегодня больше нет.</p>
+      <button id="fullDayLink" class="full-day-link" type="button">Показать прошедшие</button>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  // Формат данных: "ЧЧ:ММ,Название рейса" по одной строке
+  const DATA = {
+    "Ногина": `06:30,Автобус №7
+06:45,Автобус №12
+07:00,Автобус №106
+07:10,Автобус №7
+07:25,Автобус №12
+07:40,Автобус №106
+08:00,Автобус №7
+08:20,Автобус №12
+08:40,Автобус №106
+12:15,Автобус №7
+12:45,Автобус №12
+17:30,Автобус №106
+18:00,Автобус №7
+18:30,Автобус №12
+22:40,Автобус №106`,
+    "Вокзал": `06:15,Автобус №3
+06:35,Автобус №21
+06:55,Автобус №7
+07:15,Автобус №3
+07:35,Автобус №21
+07:55,Автобус №7
+08:15,Автобус №3
+08:35,Автобус №21
+12:00,Автобус №7
+12:20,Автобус №3
+17:45,Автобус №21
+18:05,Автобус №7
+18:25,Автобус №3
+23:10,Автобус №21`,
+    "Октябрьская": `06:40,Автобус №12
+07:05,Автобус №45
+07:20,Автобус №7
+07:50,Автобус №12
+08:15,Автобус №45
+08:35,Автобус №7
+09:00,Автобус №12
+13:00,Автобус №45
+17:15,Автобус №7
+17:45,Автобус №12
+18:15,Автобус №45
+21:50,Автобус №7`,
+    "Северная": `06:25,Автобус №9
+06:55,Автобус №33
+07:25,Автобус №9
+07:55,Автобус №33
+08:25,Автобус №9
+12:40,Автобус №33
+18:10,Автобус №9
+18:40,Автобус №33
+23:00,Автобус №9`,
+    "Парк культуры": `06:50,Автобус №14
+07:10,Автобус №61
+07:35,Автобус №14
+08:00,Автобус №61
+08:25,Автобус №14
+13:15,Автобус №61
+17:50,Автобус №14
+18:20,Автобус №61
+22:30,Автобус №14`
+  };
+
+  const stopsListEl = document.getElementById('stopsList');
+  const scheduleViewEl = document.getElementById('scheduleView');
+  const scheduleListEl = document.getElementById('scheduleList');
+  const emptyMsgEl = document.getElementById('emptyMsg');
+  const countdownTimeEl = document.getElementById('countdownTime');
+  const countdownRouteEl = document.getElementById('countdownRoute');
+  const countdownLabelEl = document.getElementById('countdownLabel');
+  const backBtn = document.getElementById('backBtn');
+  const homeIconEl = document.getElementById('homeIcon');
+  const pageTitleEl = document.getElementById('pageTitle');
+  const eyebrowEl = document.getElementById('eyebrow');
+  const fullDayLink = document.getElementById('fullDayLink');
+
+  let currentEntries = [];
+  let fullEntries = [];
+  let selectedEntry = null;
+  let timerId = null;
+  let viewMode = 'live'; // 'live' — только будущие рейсы, 'full' — весь день
+
+  function pad(n){ return n.toString().padStart(2, '0'); }
+
+  function parseSchedule(text){
+    return text.trim().split('\n').map(line => {
+      const [time, ...rest] = line.split(',');
+      return { time: time.trim(), text: rest.join(',').trim() };
+    });
+  }
+
+  function buildEntries(stopName){
+    const now = new Date();
+    return parseSchedule(DATA[stopName])
+      .map(item => {
+        const [h, m] = item.time.split(':').map(Number);
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+        return { time: item.time, text: item.text, date: d };
+      })
+      .filter(entry => entry.date > now) // скрываем рейсы, которые уже прошли сегодня
+      .sort((a, b) => a.date - b.date);
+  }
+
+  function buildFullEntries(stopName){
+    const now = new Date();
+    return parseSchedule(DATA[stopName])
+      .map(item => {
+        const [h, m] = item.time.split(':').map(Number);
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+        return { time: item.time, text: item.text, date: d };
+      })
+      .sort((a, b) => a.date - b.date);
+  }
+
+  function renderStops(){
+    stopsListEl.innerHTML = '';
+    Object.keys(DATA).forEach(name => {
+      const li = document.createElement('li');
+      li.className = 'row';
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.innerHTML = `<span class="stop-name">${name}</span><span class="stop-arrow">→</span>`;
+      li.addEventListener('click', () => openStop(name));
+      li.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStop(name); }
+      });
+      stopsListEl.appendChild(li);
+    });
+  }
+
+  function openStop(stopName){
+    currentEntries = buildEntries(stopName);
+    fullEntries = buildFullEntries(stopName);
+    selectedEntry = null;
+    viewMode = 'live';
+    fullDayLink.textContent = 'Показать прошедшие';
+    stopsListEl.hidden = true;
+    scheduleViewEl.hidden = false;
+    backBtn.hidden = false;
+    homeIconEl.hidden = true;
+    eyebrowEl.textContent = 'Расписание';
+    pageTitleEl.textContent = stopName;
+    renderSchedule();
+    if (timerId) clearInterval(timerId);
+    tick();
+    timerId = setInterval(tick, 1000);
+  }
+
+  function closeStop(){
+    if (timerId) clearInterval(timerId);
+    scheduleViewEl.hidden = true;
+    stopsListEl.hidden = false;
+    backBtn.hidden = true;
+    homeIconEl.hidden = false;
+    eyebrowEl.textContent = 'TimeTick - расписание и таймер';
+    pageTitleEl.textContent = 'Все расписания';
+  }
+
+  function renderSchedule(){
+    scheduleListEl.innerHTML = '';
+    const entries = viewMode === 'full' ? fullEntries : currentEntries;
+    const now = new Date();
+
+    if (entries.length === 0){
+      emptyMsgEl.hidden = false;
+      scheduleListEl.hidden = true;
+      return;
+    }
+    emptyMsgEl.hidden = true;
+    scheduleListEl.hidden = false;
+    entries.forEach(entry => {
+      const isPast = viewMode === 'full' && entry.date <= now;
+      const li = document.createElement('li');
+      li.className = 'row'
+        + (entry === selectedEntry ? ' selected' : '')
+        + (isPast ? ' past' : '');
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.innerHTML = `<span class="row-time">${entry.time}</span><span class="row-text">${entry.text}</span>`;
+      li.addEventListener('click', () => toggleSelect(entry));
+      li.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSelect(entry); }
+      });
+      scheduleListEl.appendChild(li);
+    });
+  }
+
+  function toggleFullDay(){
+    viewMode = (viewMode === 'full') ? 'live' : 'full';
+    fullDayLink.textContent = viewMode === 'full'
+      ? 'Скрыть прошедшие'
+      : 'Показать прошедшие';
+    renderSchedule();
+  }
+
+  function toggleSelect(entry){
+    selectedEntry = (selectedEntry === entry) ? null : entry;
+    renderSchedule();
+    tick();
+  }
+
+  function getTarget(){
+    if (selectedEntry) return selectedEntry;
+    if (currentEntries.length === 0) return null;
+    return currentEntries.reduce((a, b) => (a.date < b.date ? a : b));
+  }
+
+  function nextOccurrence(timeStr, now){
+    const [h, m] = timeStr.split(':').map(Number);
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+    if (d <= now) d.setDate(d.getDate() + 1); // время уже прошло сегодня — считаем до завтрашнего повтора
+    return d;
+  }
+
+  function tick(){
+    const target = getTarget();
+    if (!target){
+      countdownLabelEl.textContent = 'На сегодня';
+      countdownTimeEl.textContent = '—:—:—';
+      countdownRouteEl.textContent = 'Рейсов больше нет';
+      return;
+    }
+    const now = new Date();
+
+    if (target.date <= now){
+      // Плановое время рейса уже наступило.
+      const idx = currentEntries.indexOf(target);
+      if (idx > -1){
+        // Это реально отслеживаемый (живой) рейс — он "уехал", убираем строку.
+        currentEntries.splice(idx, 1);
+        if (selectedEntry === target) selectedEntry = null;
+        renderSchedule();
+        tick();
+        return;
+      }
+      // Иначе это вручную выбранный прошедший рейс из списка "Показать прошедшие" —
+      // строку никуда не убираем, а считаем время до его следующего повторения (завтра).
+    }
+
+    const targetDate = target.date <= now ? nextOccurrence(target.time, now) : target.date;
+    const diff = targetDate - now;
+
+    const totalSeconds = Math.floor(diff / 1000);
+    const hh = Math.floor(totalSeconds / 3600);
+    const mm = Math.floor((totalSeconds % 3600) / 60);
+    const ss = totalSeconds % 60;
+
+    countdownTimeEl.textContent = `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+    countdownRouteEl.textContent = `${target.time} · ${target.text}`;
+    countdownLabelEl.textContent = selectedEntry ? 'До выбранного рейса' : 'До ближайшего рейса';
+  }
+
+  backBtn.addEventListener('click', closeStop);
+  fullDayLink.addEventListener('click', toggleFullDay);
+
+  // Жест «смахивания» от левого края экрана — как системный swipe-back на iPhone
+  const EDGE_ZONE = 24;      // ширина зоны у края, где начинается жест, px
+  const SWIPE_THRESHOLD = 60; // минимальное смещение по X, чтобы считать жест свайпом
+  const SWIPE_TIME_LIMIT = 800; // мс
+
+  let edgeSwipeActive = false;
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  document.addEventListener('touchstart', e => {
+    if (scheduleViewEl.hidden) { edgeSwipeActive = false; return; }
+    const t = e.touches[0];
+    edgeSwipeActive = t.clientX <= EDGE_ZONE;
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!edgeSwipeActive) return;
+    edgeSwipeActive = false;
+    const t = e.changedTouches[0];
+    const deltaX = t.clientX - touchStartX;
+    const deltaY = Math.abs(t.clientY - touchStartY);
+    const elapsed = Date.now() - touchStartTime;
+    if (deltaX >= SWIPE_THRESHOLD && deltaY < SWIPE_THRESHOLD && elapsed <= SWIPE_TIME_LIMIT){
+      closeStop();
+    }
+  }, { passive: true });
+
+  renderStops();
+</script>
+</body>
+</html>
