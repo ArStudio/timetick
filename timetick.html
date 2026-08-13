@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>TimeTick - расписание и таймер</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230b0c0e'/%3E%3Cpath d='M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2' fill='none' stroke='%23ffb703' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root{
     --bg: #0b0c0e;
@@ -99,7 +100,7 @@
     color: var(--accent);
   }
 
-  main{ flex: 1; padding-bottom: 40px; }
+  main{ flex: 1; padding-bottom: 8px; }
 
   ul{ list-style: none; margin: 0; padding: 0; }
 
@@ -179,15 +180,14 @@
     appearance: none;
     background: none;
     border: none;
-    border-top: 1px dashed var(--border);
+    border-bottom: 1px dashed var(--border);
     color: var(--accent);
     font-family: var(--font-display);
     font-size: 12px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-align: center;
-    padding: 18px 16px;
-    margin-top: 4px;
+    padding: 14px 16px;
     cursor: pointer;
   }
   .full-day-link:hover{ color: #ffd166; }
@@ -198,6 +198,21 @@
   .row.selected.past{ opacity: 1; }
   .row.selected.past .row-time,
   .row.selected.past .row-text{ color: var(--accent); }
+
+  footer{
+    border-top: 1px dashed var(--border);
+    padding: 18px 16px 28px;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+  footer p{ margin: 0; }
+  footer a{
+    color: var(--accent);
+    text-decoration: none;
+  }
+  footer a:hover{ text-decoration: underline; }
 
   [hidden]{ display: none !important; }
 
@@ -240,34 +255,52 @@
         <div class="countdown-time" id="countdownTime">00:00:00</div>
         <div class="countdown-route" id="countdownRoute">—</div>
       </div>
+      <button id="fullDayLink" class="full-day-link" type="button">Показать прошедшие</button>
       <ul id="scheduleList" class="schedule-list"></ul>
       <p id="emptyMsg" hidden>События на сегодня больше нет.</p>
-      <button id="fullDayLink" class="full-day-link" type="button">Показать прошедшие</button>
     </div>
   </main>
+
+  <footer>
+    <p><a href="https://github.com/envifood/timetick" target="_blank" rel="noopener noreferrer">TimeTick</a> - сделай удобное расписание для себя.</p>
+    <p><a href="https://envifood.github.io" target="_blank" rel="noopener noreferrer">Визуальная СрЕда</a> 2026</p>
+  </footer>
 
 </div>
 
 <script>
-  // Формат данных: "ЧЧ:ММ,Название события" по одной строке
-  const DATA = {
-    "Список": `07:20,Событие первое
-		08:35,Событие второе
-		13:00,Событие третье
-		17:45,Еще одно событие
-		21:50,Последнее событие`,
-    "День X": `06:25,Событие с утра
-		12:40,Событие в середине дня
-		18:10,Событие вечернее
-		01:15,Событие ночное`,
-    "Распорядок дня": `07:10,Зарядка
-		08:00,Завтрак
-		08:25,Дорога
-		09:00,Работа
-		13:00,Обед
-		18:20,Ужин
-		22:30,Сон`
-  };
+  // Формат данных: name — отображаемое имя, url — идентификатор для ссылки (?list=...),
+  // schedule — строки вида "ЧЧ:ММ,Название события"
+  const DATA = [
+    {
+      name: "Список",
+      url: "spisok",
+      schedule: `07:20,Событие первое
+07:35,Событие второе
+13:00,Событие третье
+17:45,Еще одно событие
+21:50,Последнее событие`
+    },
+    {
+      name: "День X",
+      url: "den-x",
+      schedule: `06:25,Событие с утра
+12:40,Событие в середине дня
+18:10,Событие вечернее
+01:15,Событие ночное`
+    },
+    {
+      name: "Распорядок дня",
+      url: "rasporyadok-dnya",
+      schedule: `07:10,Зарядка
+08:00,Завтрак
+08:25,Дорога
+09:00,Работа
+13:00,Обед
+18:20,Ужин
+22:30,Сон`
+    }
+  ];
 
   const stopsListEl = document.getElementById('stopsList');
   const scheduleViewEl = document.getElementById('scheduleView');
@@ -297,9 +330,9 @@
     });
   }
 
-  function buildEntries(stopName){
+  function buildEntries(scheduleText){
     const now = new Date();
-    return parseSchedule(DATA[stopName])
+    return parseSchedule(scheduleText)
       .map(item => {
         const [h, m] = item.time.split(':').map(Number);
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
@@ -309,9 +342,9 @@
       .sort((a, b) => a.date - b.date);
   }
 
-  function buildFullEntries(stopName){
+  function buildFullEntries(scheduleText){
     const now = new Date();
-    return parseSchedule(DATA[stopName])
+    return parseSchedule(scheduleText)
       .map(item => {
         const [h, m] = item.time.split(':').map(Number);
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
@@ -322,23 +355,24 @@
 
   function renderStops(){
     stopsListEl.innerHTML = '';
-    Object.keys(DATA).forEach(name => {
+    DATA.forEach(item => {
       const li = document.createElement('li');
       li.className = 'row';
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
-      li.innerHTML = `<span class="stop-name">${name}</span><span class="stop-arrow">→</span>`;
-      li.addEventListener('click', () => openStop(name));
+      li.innerHTML = `<span class="stop-name">${item.name}</span><span class="stop-arrow">→</span>`;
+      li.addEventListener('click', () => openStop(item));
       li.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStop(name); }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStop(item); }
       });
       stopsListEl.appendChild(li);
     });
   }
 
-  function openStop(stopName){
-    currentEntries = buildEntries(stopName);
-    fullEntries = buildFullEntries(stopName);
+  // Отрисовка экрана расписания без изменения истории/URL (используется и для popstate)
+  function showSchedule(item){
+    currentEntries = buildEntries(item.schedule);
+    fullEntries = buildFullEntries(item.schedule);
     selectedEntry = null;
     viewMode = 'live';
     fullDayLink.textContent = 'Показать прошедшие';
@@ -347,14 +381,15 @@
     backBtn.hidden = false;
     homeIconEl.hidden = true;
     eyebrowEl.textContent = 'Расписание';
-    pageTitleEl.textContent = stopName;
+    pageTitleEl.textContent = item.name;
     renderSchedule();
     if (timerId) clearInterval(timerId);
     tick();
     timerId = setInterval(tick, 1000);
   }
 
-  function closeStop(){
+  // Отрисовка главного экрана без изменения истории/URL
+  function showHome(){
     if (timerId) clearInterval(timerId);
     scheduleViewEl.hidden = true;
     stopsListEl.hidden = false;
@@ -363,6 +398,28 @@
     eyebrowEl.textContent = 'TimeTick - расписание и таймер';
     pageTitleEl.textContent = 'Все расписания';
   }
+
+  // Открытие расписания по клику: отрисовка + обновление адресной строки, чтобы можно было поделиться ссылкой
+  function openStop(item){
+    showSchedule(item);
+    const url = new URL(location.href);
+    url.searchParams.set('list', item.url);
+    history.pushState({ list: item.url }, '', url);
+  }
+
+  function closeStop(){
+    showHome();
+    const url = new URL(location.href);
+    url.searchParams.delete('list');
+    history.pushState({ list: null }, '', url);
+  }
+
+  window.addEventListener('popstate', () => {
+    const params = new URLSearchParams(location.search);
+    const slug = params.get('list');
+    const found = slug ? DATA.find(d => d.url === slug) : null;
+    if (found) showSchedule(found); else showHome();
+  });
 
   function renderSchedule(){
     scheduleListEl.innerHTML = '';
@@ -434,7 +491,7 @@
       // Плановое время события уже наступило.
       const idx = currentEntries.indexOf(target);
       if (idx > -1){
-        // Это реально отслеживаемое (живое) событие — он "уехал", убираем строку.
+        // Это реально отслеживаемое (живое) событие — оно "случилось", убираем строку.
         currentEntries.splice(idx, 1);
         if (selectedEntry === target) selectedEntry = null;
         renderSchedule();
@@ -461,7 +518,46 @@
   backBtn.addEventListener('click', closeStop);
   fullDayLink.addEventListener('click', toggleFullDay);
 
+  // Жест «смахивания» от левого края экрана — как системный swipe-back на iPhone
+  const EDGE_ZONE = 24;      // ширина зоны у края, где начинается жест, px
+  const SWIPE_THRESHOLD = 60; // минимальное смещение по X, чтобы считать жест свайпом
+  const SWIPE_TIME_LIMIT = 800; // мс
+
+  let edgeSwipeActive = false;
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  document.addEventListener('touchstart', e => {
+    if (scheduleViewEl.hidden) { edgeSwipeActive = false; return; }
+    const t = e.touches[0];
+    edgeSwipeActive = t.clientX <= EDGE_ZONE;
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!edgeSwipeActive) return;
+    edgeSwipeActive = false;
+    const t = e.changedTouches[0];
+    const deltaX = t.clientX - touchStartX;
+    const deltaY = Math.abs(t.clientY - touchStartY);
+    const elapsed = Date.now() - touchStartTime;
+    if (deltaX >= SWIPE_THRESHOLD && deltaY < SWIPE_THRESHOLD && elapsed <= SWIPE_TIME_LIMIT){
+      closeStop();
+    }
+  }, { passive: true });
+
   renderStops();
+
+  // При загрузке страницы: если в адресе уже есть ?list=..., сразу открыть это расписание
+  (function initFromUrl(){
+    const params = new URLSearchParams(location.search);
+    const slug = params.get('list');
+    const found = slug ? DATA.find(d => d.url === slug) : null;
+    if (found) showSchedule(found);
+  })();
 </script>
 </body>
 </html>
